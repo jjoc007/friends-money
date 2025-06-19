@@ -1,0 +1,8 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0  # usa la última versión estable
+    hooks:
+      - id: trailing-whitespace      # elimina espacios al final de línea
+      - id: end-of-file-fixer        # asegura una línea en blanco al final
+      - id: check-yaml               # valida sintaxis YAML
+      - id: check-added-large-files  # alerta si se agregan archivos grandes
