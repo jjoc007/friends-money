@@ -1,66 +1,86 @@
-resource "aws_vpc" "main" {
-  cidr_block = var.vpc_cidr
-  tags = {
-    Name = "${var.project}-vpc"
+# Serverless infrastructure using Lambda, API Gateway and DynamoDB
+
+resource "aws_iam_role" "lambda_exec" {
+  name = "${var.project}-lambda-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_exec.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Package Lambda function code
+
+data "archive_file" "lambda" {
+  type        = "zip"
+  source_file = "${path.module}/../lambda/handler.py"
+  output_path = "${path.module}/handler.zip"
+}
+
+resource "aws_lambda_function" "api" {
+  function_name    = "${var.project}-api"
+  filename         = data.archive_file.lambda.output_path
+  source_code_hash = data.archive_file.lambda.output_base64sha256
+  handler          = var.lambda_handler
+  runtime          = var.lambda_runtime
+  role             = aws_iam_role.lambda_exec.arn
+}
+
+# API Gateway HTTP API
+
+resource "aws_apigatewayv2_api" "http" {
+  name          = "${var.project}-api"
+  protocol_type = "HTTP"
+}
+
+resource "aws_apigatewayv2_stage" "default" {
+  api_id      = aws_apigatewayv2_api.http.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_apigatewayv2_integration" "lambda" {
+  api_id                 = aws_apigatewayv2_api.http.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.api.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "default" {
+  api_id    = aws_apigatewayv2_api.http.id
+  route_key = "$default"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda.id}"
+}
+
+resource "aws_lambda_permission" "apigw" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http.execution_arn}/*/*"
+}
+
+# DynamoDB table for events or expenses
+resource "aws_dynamodb_table" "events" {
+  name         = "${var.project}-events"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "id"
+
+  attribute {
+    name = "id"
+    type = "S"
   }
 }
 
-resource "aws_subnet" "public" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = var.public_subnet_cidr
-  map_public_ip_on_launch = true
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  tags = {
-    Name = "${var.project}-public"
-  }
-}
-
-resource "aws_subnet" "private" {
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = var.private_subnet_cidr
-  availability_zone = data.aws_availability_zones.available.names[0]
-  tags = {
-    Name = "${var.project}-private"
-  }
-}
-
-resource "aws_security_group" "default" {
-  name   = "${var.project}-sg"
-  vpc_id = aws_vpc.main.id
-
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-resource "aws_db_subnet_group" "default" {
-  name       = "${var.project}-db-subnets"
-  subnet_ids = [aws_subnet.private.id]
-}
-
-resource "aws_db_instance" "postgres" {
-  identifier              = "${var.project}-db"
-  engine                  = "postgres"
-  instance_class          = "db.t3.micro"
-  allocated_storage       = 20
-  name                    = var.db_name
-  username                = var.db_username
-  password                = var.db_password
-  skip_final_snapshot     = true
-  vpc_security_group_ids  = [aws_security_group.default.id]
-  db_subnet_group_name    = aws_db_subnet_group.default.name
-}
-
+# Randomized bucket for static files
 resource "random_id" "bucket" {
   byte_length = 4
 }
@@ -69,5 +89,3 @@ resource "aws_s3_bucket" "static" {
   bucket = "${var.project}-static-${random_id.bucket.hex}"
   acl    = "private"
 }
-
-data "aws_availability_zones" "available" {}

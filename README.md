@@ -22,7 +22,7 @@ Para más detalles consulta el plan de desarrollo incluido en este repositorio.
 
 ## Infraestructura con Terraform
 
-La carpeta `terraform` contiene una configuracion minima para desplegar la VPC, subredes, grupos de seguridad, una base de datos RDS PostgreSQL y un bucket S3. Para inicializar y revisar el plan de cambios ejecuta:
+La carpeta `terraform` define una infraestructura **serverless** que crea funciones Lambda, una API Gateway HTTP, una tabla DynamoDB en modo `PAY_PER_REQUEST` y un bucket S3 para archivos estáticos. Para inicializar y revisar el plan de cambios ejecuta:
 
 ```bash
 terraform init

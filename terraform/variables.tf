@@ -10,39 +10,14 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for the VPC"
+variable "lambda_runtime" {
+  description = "Lambda runtime"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "python3.12"
 }
 
-variable "public_subnet_cidr" {
-  description = "CIDR block for the public subnet"
+variable "lambda_handler" {
+  description = "Lambda handler"
   type        = string
-  default     = "10.0.0.0/24"
-}
-
-variable "private_subnet_cidr" {
-  description = "CIDR block for the private subnet"
-  type        = string
-  default     = "10.0.1.0/24"
-}
-
-variable "db_name" {
-  description = "Database name"
-  type        = string
-  default     = "friendsdb"
-}
-
-variable "db_username" {
-  description = "Database username"
-  type        = string
-  default     = "friends"
-}
-
-variable "db_password" {
-  description = "Database password"
-  type        = string
-  default     = "changeme"
-  sensitive   = true
+  default     = "handler.lambda_handler"
 }
