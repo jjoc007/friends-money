@@ -119,4 +119,3 @@ Este documento describe las épicas, objetivos y tareas para construir la aplica
 ---
 
 Cada épica puede dividirse en sprints según las prioridades del proyecto. Este plan servirá de guía inicial para comenzar el desarrollo de la aplicación.
-
