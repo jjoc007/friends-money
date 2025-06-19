@@ -19,3 +19,14 @@ Este repositorio servirá de guía para construir la infraestructura, el backend
 3. Crear las pantallas iniciales del frontend en React Native y conectar con el backend.
 
 Para más detalles consulta el plan de desarrollo incluido en este repositorio.
+
+## Infraestructura con Terraform
+
+La carpeta `terraform` contiene una configuracion minima para desplegar la VPC, subredes, grupos de seguridad, una base de datos RDS PostgreSQL y un bucket S3. Para inicializar y revisar el plan de cambios ejecuta:
+
+```bash
+terraform init
+terraform plan
+```
+
+Tambien se incluye un workflow de GitHub Actions que valida la configuracion en cada _pull request_.
