@@ -19,3 +19,14 @@ Este repositorio servirá de guía para construir la infraestructura, el backend
 3. Crear las pantallas iniciales del frontend en React Native y conectar con el backend.
 
 Para más detalles consulta el plan de desarrollo incluido en este repositorio.
+
+## Infraestructura con Terraform
+
+La carpeta `terraform` define una infraestructura **serverless** que crea funciones Lambda, una API Gateway HTTP, una tabla DynamoDB en modo `PAY_PER_REQUEST` y un bucket S3 para archivos estáticos. Para inicializar y revisar el plan de cambios ejecuta:
+
+```bash
+terraform init
+terraform plan
+```
+
+Tambien se incluye un workflow de GitHub Actions que valida la configuracion en cada _pull request_.
