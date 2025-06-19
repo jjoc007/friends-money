@@ -30,3 +30,19 @@ terraform plan
 ```
 
 Tambien se incluye un workflow de GitHub Actions que valida la configuracion en cada _pull request_.
+
+## Contenedores Docker
+
+Existen dos directorios principales para crear las imágenes de la aplicación:
+
+- `backend`: servicio FastAPI que expone la API principal.
+- `frontend`: aplicación React que consumirá el backend.
+
+Para construir cada imagen se incluyen Dockerfiles básicos. Ejemplo de uso:
+
+```bash
+cd backend
+docker build -t friends-money-backend .
+cd ../frontend
+docker build -t friends-money-frontend .
+```

@@ -18,8 +18,8 @@ Este documento describe las épicas, objetivos y tareas para construir la aplica
 **Objetivo:** preparar la ejecución de los servicios mediante contenedores.
 
 **Tareas principales:**
-2.1 Crear `Dockerfile` para el backend en Python.
-2.2 Crear `Dockerfile` para el frontend (React Native para web o similar).
+ - [x] 2.1 Crear `Dockerfile` para el backend en Python.
+ - [x] 2.2 Crear `Dockerfile` para el frontend (React Native para web o similar).
 2.3 Configurar repositorio ECR y subir imágenes.
 2.4 Definir un clúster ECS o EKS y desplegar los contenedores.
 2.5 Automatizar el despliegue desde la canalización de CI/CD.
