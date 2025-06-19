@@ -1,10 +1,11 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
-from sqlalchemy import Column, Integer, String, create_engine
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+from sqlalchemy import Column, ForeignKey, Integer, String, create_engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+import uuid
 
 DATABASE_URL = "sqlite:///./app.db"
 SECRET_KEY = "change-me"
@@ -21,6 +22,23 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id"))
+    invitation_token = Column(String, unique=True, index=True)
+
+
+class EventParticipant(Base):
+    __tablename__ = "event_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -71,6 +89,30 @@ class Token(BaseModel):
     token_type: str = "bearer"
 
 
+class EventCreate(BaseModel):
+    name: str
+
+
+def get_current_user(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> User:
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials",
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str | None = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = db.query(User).filter(User.username == username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+
 app = FastAPI()
 
 
@@ -106,12 +148,69 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @app.get("/me")
-def read_users_me(token: str = Depends(oauth2_scheme)):
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str | None = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid token")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return {"username": username}
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return {"username": current_user.username}
+
+
+@app.post("/events/", response_model=dict)
+def create_event(
+    event: EventCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    invitation_token = str(uuid.uuid4())
+    event_obj = Event(
+        name=event.name,
+        owner_id=current_user.id,
+        invitation_token=invitation_token,
+    )
+    db.add(event_obj)
+    db.commit()
+    db.refresh(event_obj)
+    participant = EventParticipant(event_id=event_obj.id, user_id=current_user.id)
+    db.add(participant)
+    db.commit()
+    return {
+        "id": event_obj.id,
+        "name": event_obj.name,
+        "invitation_token": event_obj.invitation_token,
+    }
+
+
+@app.get("/events/", response_model=list[dict])
+def list_events(
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    events = (
+        db.query(Event)
+        .join(EventParticipant)
+        .filter(EventParticipant.user_id == current_user.id)
+        .all()
+    )
+    return [
+        {"id": e.id, "name": e.name, "invitation_token": e.invitation_token}
+        for e in events
+    ]
+
+
+@app.post("/events/join/{token}", response_model=dict)
+def join_event(
+    token: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    event = db.query(Event).filter(Event.invitation_token == token).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    exists = (
+        db.query(EventParticipant)
+        .filter(
+            EventParticipant.event_id == event.id,
+            EventParticipant.user_id == current_user.id,
+        )
+        .first()
+    )
+    if not exists:
+        db.add(EventParticipant(event_id=event.id, user_id=current_user.id))
+        db.commit()
+    return {"message": "joined", "event_id": event.id}
